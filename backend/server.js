@@ -39,5 +39,11 @@ app.get("/", (req, res) => {
 // Server start
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  let url;
+  if (process.env.RENDER_EXTERNAL_URL) {
+    url = `${process.env.RENDER_EXTERNAL_URL}`;
+  } else {
+    url = `http://localhost:${PORT}`;
+  }
+  console.log(`Server running at: ${url}`);
 });
