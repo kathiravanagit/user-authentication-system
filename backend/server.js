@@ -43,7 +43,7 @@ app.listen(PORT, () => {
   if (process.env.RENDER_EXTERNAL_URL) {
     url = `${process.env.RENDER_EXTERNAL_URL}`;
   } else {
-    url = `http://localhost:${PORT}`;
+    url = `http://localhost:5000`;
   }
-  console.log(`Server running at: ${url}`);
+  console.log(`Server running at:5000`);
 });
