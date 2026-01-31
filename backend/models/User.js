@@ -14,6 +14,13 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  isConfirmed: {
+    type: Boolean,
+    default: false
+  },
+  confirmationToken: {
+    type: String
+  },
   resetOtpHash: {
     type: String
   },

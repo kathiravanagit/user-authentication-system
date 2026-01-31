@@ -1,3 +1,23 @@
+// EMAIL CONFIRMATION ROUTE
+router.get("/confirm-email", async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) {
+      return res.status(400).json({ message: "Confirmation token is required" });
+    }
+    const user = await User.findOne({ confirmationToken: token });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired confirmation token" });
+    }
+    user.isConfirmed = true;
+    user.confirmationToken = undefined;
+    await user.save();
+    res.json({ message: "Email confirmed successfully. You can now log in." });
+  } catch (error) {
+    console.log("CONFIRM EMAIL ERROR:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -70,6 +90,28 @@ const sendResetOtp = async (to, otp) => {
   }
 };
 
+// Helper to send confirmation email
+const sendConfirmationEmail = async (to, token) => {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    throw new Error("Email service not configured");
+  }
+  const from = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  const confirmUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/confirm-email?token=${token}`;
+  try {
+    const info = await transporter.sendMail({
+      from,
+      to,
+      subject: "AuthKit Confirmation",
+      text: `Please confirm your email by clicking the following link: ${confirmUrl}`,
+      html: `<p>Please confirm your email by clicking <a href="${confirmUrl}">here</a>.</p>`
+    });
+    console.log("CONFIRM EMAIL SENT:", info);
+  } catch (error) {
+    console.log("CONFIRM EMAIL ERROR:", error.message);
+    throw error;
+  }
+};
+
 // REGISTER ROUTE
 router.post("/register", async (req, res) => {
   try {
@@ -97,16 +139,23 @@ router.post("/register", async (req, res) => {
 
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
+    // Generate confirmation token
+    const confirmationToken = crypto.randomBytes(32).toString("hex");
 
     const user = new User({
       name,
       email: normalizedEmail,
-      password: hashedPassword
+      password: hashedPassword,
+      isConfirmed: false,
+      confirmationToken
     });
 
     await user.save();
 
-    res.status(201).json({ message: "User registered successfully" });
+    // Send confirmation email
+    await sendConfirmationEmail(normalizedEmail, confirmationToken);
+
+    res.status(201).json({ message: "Registration successful. Please check your email to confirm your account." });
   } catch (error) {
     console.log("REGISTER ERROR:", error);
     res.status(500).json({ message: error.message });
@@ -127,18 +176,18 @@ router.post("/login", async (req, res) => {
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
-
+    if (!user.isConfirmed) {
+      return res.status(403).json({ message: "Please confirm your email before logging in." });
+    }
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
-
     const token = jwt.sign(
       { userId: user._id },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
-
     res.json({ token });
   } catch (error) {
     console.log("LOGIN ERROR:", error);
