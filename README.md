@@ -13,6 +13,7 @@ The main objective of this project is to demonstrate user authentication and aut
 ## Technologies Used
 
 * React JS (Frontend)
+* UI Components:shadcn/ui (Radix UI + Tailwind CSS)
 * Node.js
 * Express.js
 * MongoDB Atlas
