@@ -36,18 +36,32 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+transporter.verify((error) => {
+  if (error) {
+    console.log("EMAIL CONFIG ERROR:", error.message);
+  } else {
+    console.log("Email service ready");
+  }
+});
+
 const sendResetOtp = async (to, otp) => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     throw new Error("Email service not configured");
   }
 
   const from = process.env.EMAIL_FROM || process.env.EMAIL_USER;
-  await transporter.sendMail({
+  const info = await transporter.sendMail({
     from,
     to,
     subject: "Your password reset OTP",
     text: `Your OTP is ${otp}. It expires in 10 minutes.`,
     html: `<p>Your OTP is <strong>${otp}</strong>. It expires in 10 minutes.</p>`
+  });
+  console.log("OTP EMAIL SENT:", {
+    messageId: info.messageId,
+    accepted: info.accepted,
+    rejected: info.rejected,
+    response: info.response
   });
 };
 
@@ -151,7 +165,12 @@ router.post("/forgot-password", async (req, res) => {
       user.resetOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
       await user.save();
 
-      await sendResetOtp(normalizedEmail, otp);
+      try {
+        await sendResetOtp(normalizedEmail, otp);
+      } catch (emailError) {
+        console.log("SEND OTP ERROR:", emailError);
+        return res.status(500).json({ message: "Email service error. OTP not sent." });
+      }
     }
 
     res.json({ message: "If the account exists, an OTP was sent." });
